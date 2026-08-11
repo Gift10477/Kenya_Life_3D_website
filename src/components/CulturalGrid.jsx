@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { Bus, ShoppingBag, Building2, UtensilsCrossed, ArrowRight, X, Sparkles, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bus, ShoppingBag, Building2, Utensils, ArrowRight, X, Sparkles, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import RippleText from './RippleText';
 import NganyaPage from './NganyaPage';
+import SmochaPage from './SmochaPage';
 
 const CULTURAL_STAGES = [
   {
@@ -61,21 +61,21 @@ const CULTURAL_STAGES = [
     ]
   },
   {
-    id: 'swahili',
+    id: 'smocha',
     index: '04',
-    title: 'Swahili & Coast Stage',
-    titleJa: 'Ocean Breeze & Heritage',
-    badge: 'Coastal Culture',
-    icon: UtensilsCrossed,
-    description: 'Journey to the Swahili coast, where Lamu and Mombasa embrace centuries of spice trading, dhow sailing, and rich culinary tradition.',
-    image: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=80',
-    color: '#d9b36c',
-    accentGrad: 'from-rose-500/20 to-amber-600/30',
-    stats: ['UNESCO World Heritage', 'Centuries of Trade', 'Swahili Fusion Cuisine'],
+    title: 'Smocha',
+    titleJa: 'Street Food Reimagined',
+    badge: 'Kenyan Street Food',
+    icon: Utensils,
+    description: 'The Kenyan street-food icon — a smokie wrapped in a golden chapati with kachumbari and sauce. Deconstructed across 240 cinematic frames.',
+    image: '/frames_smocha/frame_0001.jpg',
+    color: '#C99A55',
+    accentGrad: 'from-amber-500/20 to-yellow-900/30',
+    stats: ['240 Frames', 'Chapati & Smokie', 'Kachumbari'],
     highlights: [
-      'Traditional carved wooden doors of Old Town Lamu & Fort Jesus',
-      'Spiced Swahili pilau, coconut rice, and coastal seafood feasts',
-      'Sunset dhow cruises along the turquoise Indian Ocean'
+      'Scroll-controlled 3D deconstruction of a classic Kenyan street snack',
+      'Chapati, smokie, kachumbari and sauce — every layer revealed',
+      'An interactive cinematic food experience unlike anything else'
     ]
   }
 ];
@@ -116,10 +116,10 @@ function createCardTexture(stage, index, total) {
   canvas.height = 640;
   const ctx = canvas.getContext('2d');
 
-  // Background Gradient across full card canvas
+  // The slide engine is preserved; its texture becomes an edge-to-edge scene.
   const bgGrad = ctx.createLinearGradient(0, 0, 0, 640);
-  bgGrad.addColorStop(0, '#161224');
-  bgGrad.addColorStop(1, '#06080d');
+  bgGrad.addColorStop(0, stage.color);
+  bgGrad.addColorStop(1, '#030405');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, 1024, 640);
 
@@ -167,15 +167,19 @@ function createCardTexture(stage, index, total) {
         }
         ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
-      } catch (e) {}
+      } catch (e) { }
     }
 
-    const overlayGrad = ctx.createLinearGradient(0, 0, 0, 640);
-    overlayGrad.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-    overlayGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
-    overlayGrad.addColorStop(1, 'rgba(5, 7, 10, 0.96)');
+    const overlayGrad = ctx.createLinearGradient(0, 0, 1024, 640);
+    overlayGrad.addColorStop(0, 'rgba(2, 4, 6, 0.78)');
+    overlayGrad.addColorStop(0.45, 'rgba(2, 4, 6, 0.12)');
+    overlayGrad.addColorStop(1, 'rgba(2, 4, 6, 0.58)');
     ctx.fillStyle = overlayGrad;
     ctx.fillRect(0, 0, 1024, 640);
+
+    // The editorial typography lives in the DOM overlay so the moving plane
+    // reads as an environment, not a labelled product card.
+    ctx.globalAlpha = 0;
 
     // Accent top bar
     ctx.fillStyle = stage.color;
@@ -219,6 +223,12 @@ function createCardTexture(stage, index, total) {
       tagX += textWidth + 28;
     });
 
+    ctx.globalAlpha = 1;
+    const vignette = ctx.createRadialGradient(512, 310, 80, 512, 310, 620);
+    vignette.addColorStop(0.45, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.72)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, 1024, 640);
     texture.needsUpdate = true;
   };
 
@@ -240,6 +250,7 @@ export default function CulturalGrid() {
   const [isScalingNganya, setIsScalingNganya] = useState(false);
   const [scaleDirection, setScaleDirection] = useState('up');
   const [isNganyaPageOpen, setIsNganyaPageOpen] = useState(false);
+  const [isSmochaPageOpen, setIsSmochaPageOpen] = useState(false);
 
   const targetProgressRef = useRef(0);
   const currentProgressRef = useRef(0);
@@ -262,6 +273,8 @@ export default function CulturalGrid() {
         setIsNganyaPageOpen(true);
         setIsScalingNganya(false);
       }, 1050);
+    } else if (stage.id === 'smocha') {
+      setIsSmochaPageOpen(true);
     } else {
       setSelectedStage(stage);
     }
@@ -274,6 +287,10 @@ export default function CulturalGrid() {
     setTimeout(() => {
       setIsScalingNganya(false);
     }, 1050);
+  }, []);
+
+  const handleSmochaClose = useCallback(() => {
+    setIsSmochaPageOpen(false);
   }, []);
 
   /* 3D WebGL Scene Init */
@@ -310,7 +327,7 @@ export default function CulturalGrid() {
     scene.add(dirLight);
 
     const panels = [];
-    const { geometry } = createRoundedPlaneGeometry(3.6, 2.25, 0.2, 16);
+    const { geometry } = createRoundedPlaneGeometry(5.8, 3.65, 0.04, 8);
 
     CULTURAL_STAGES.forEach((stage, i) => {
       const texture = createCardTexture(stage, i, CULTURAL_STAGES.length);
@@ -345,7 +362,7 @@ export default function CulturalGrid() {
         opacity: 0.85,
         depthWrite: false,
       });
-      const shadowGeom = new THREE.PlaneGeometry(4.6, 3.2);
+      const shadowGeom = new THREE.PlaneGeometry(6.6, 4.3);
       const shadowMesh = new THREE.Mesh(shadowGeom, shadowMat);
       shadowMesh.position.z = -0.03;
       mesh.add(shadowMesh);
@@ -365,16 +382,16 @@ export default function CulturalGrid() {
         const offset = i - curProg;
         const distFromCenter = Math.abs(offset);
 
-        const targetX = offset * 3.6;
-        const targetZ = -distFromCenter * 1.2;
-        const targetRotY = -Math.atan2(offset * 0.7, 3);
-        const targetScale = Math.max(0.45, 1.0 - distFromCenter * 0.25);
+        const targetX = offset * 5.0;
+        const targetZ = -distFromCenter * 1.65;
+        const targetRotY = -Math.atan2(offset * 0.38, 3);
+        const targetScale = Math.max(0.7, 1.08 - distFromCenter * 0.22);
 
         let targetOpacity = 0.2;
         if (distFromCenter < 0.5) {
           targetOpacity = 1.0 - distFromCenter * 0.4;
         } else if (distFromCenter < 1.5) {
-          targetOpacity = 0.4 - (distFromCenter - 0.5) * 0.2;
+          targetOpacity = 0.38 - (distFromCenter - 0.5) * 0.16;
         } else {
           targetOpacity = 0.12;
         }
@@ -545,7 +562,7 @@ export default function CulturalGrid() {
             position: 'absolute',
             inset: 0,
             backgroundColor: 'rgba(5, 7, 10, 0.45)',
-            background: 'radial-gradient(circle at center, rgba(5,7,10,0.2) 0%, rgba(5,7,10,0.85) 100%)',
+            background: `radial-gradient(circle at 70% 35%, ${activeStage.color}38 0%, rgba(5,7,10,0.3) 34%, rgba(5,7,10,0.92) 78%)`,
             zIndex: 0,
             pointerEvents: 'none',
           }}
@@ -565,72 +582,66 @@ export default function CulturalGrid() {
           }}
         />
 
-        {/* Section Header with RippleText Title preserved */}
+        {/* Editorial framing follows the same scroll progression as the canvas. */}
         <motion.div
-          animate={{
-            opacity: (isScalingNganya || isNganyaPageOpen) ? 0 : 1,
-            y: (isScalingNganya || isNganyaPageOpen) ? -35 : 0,
-          }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: (isScalingNganya || isNganyaPageOpen) ? 0 : 0.25 }}
-          className="absolute top-20 sm:top-24 left-6 right-6 sm:left-14 sm:right-14 z-10 flex flex-col items-center text-center pointer-events-none"
+          key={activeStage.id}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 0 : 1, y: 0 }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute left-6 sm:left-[10vw] bottom-24 sm:bottom-20 z-10 max-w-md pointer-events-none"
         >
-          {/* Preserved Title & Text Wave Ripple Effect */}
-          <RippleText
-            text="Explore the Four Stages of Kenya"
-            tag="h2"
-            className="font-heading text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight"
-          />
+          <p className="font-mono-tech text-[10px] sm:text-xs uppercase tracking-[0.38em] mb-5" style={{ color: activeStage.color }}>
+            {activeStage.index} / 04 &nbsp; {activeStage.badge}
+          </p>
+          <h2 className="font-heading text-4xl sm:text-6xl lg:text-7xl font-bold uppercase text-white leading-[0.88] tracking-[-0.045em] drop-shadow-2xl">
+            {activeStage.title}
+          </h2>
+          <p className="mt-6 max-w-sm text-sm sm:text-base leading-relaxed text-slate-200/85">
+            {activeStage.description}
+          </p>
+          <button onClick={() => handleStageOpen(activeStage)} className="pointer-events-auto mt-7 inline-flex items-center gap-3 border-b border-white/40 pb-2 font-mono-tech text-xs uppercase tracking-[0.22em] text-white transition hover:border-white hover:text-white">
+            Enter scene <ArrowRight className="w-4 h-4" />
+          </button>
         </motion.div>
 
-        {/* Left Side Interactive Stages Selector List */}
+        {/* Small fixed stage marker: navigation without competing with the scenes. */}
         <motion.div
           animate={{
-            opacity: (isScalingNganya || isNganyaPageOpen) ? 0 : 1,
-            x: (isScalingNganya || isNganyaPageOpen) ? -45 : 0,
+            opacity: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 0 : 1,
+            x: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? -45 : 0,
           }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: (isScalingNganya || isNganyaPageOpen) ? 0 : 0.35 }}
-          className="absolute left-6 sm:left-14 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-3 max-w-[260px] pointer-events-auto"
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 0 : 0.35 }}
+          className="absolute right-6 sm:right-12 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-4 pointer-events-auto"
         >
           {CULTURAL_STAGES.map((stage, idx) => {
             const isActive = idx === activeIdx;
-            const Icon = stage.icon;
             return (
               <div
                 key={stage.id}
                 onClick={() => scrollToCard(idx)}
                 style={{
                   cursor: 'pointer',
-                  padding: '10px 14px',
-                  borderLeft: isActive ? `3px solid ${stage.color}` : '1px solid rgba(255, 255, 255, 0.1)',
-                  backgroundColor: isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.45)',
-                  backdropFilter: 'blur(12px)',
+                  padding: '3px 0',
+                  borderRight: isActive ? `2px solid ${stage.color}` : '2px solid rgba(255, 255, 255, 0.18)',
                   transition: 'all 0.3s ease',
-                  borderRadius: '0 8px 8px 0',
                 }}
-                className="group hover:border-amber-400"
+                className="group text-right pr-3"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon className="w-3.5 h-3.5" style={{ color: isActive ? stage.color : '#94a3b8' }} />
-                  <span className="font-mono-tech text-[10px] uppercase tracking-wider" style={{ color: isActive ? stage.color : '#94a3b8' }}>
-                    STAGE {stage.index}
-                  </span>
-                </div>
-                <div className="font-heading text-sm font-bold text-white line-clamp-1">
-                  {stage.title}
-                </div>
+                <span className="font-mono-tech text-[10px] uppercase tracking-[0.2em]" style={{ color: isActive ? stage.color : '#94a3b8' }}>{stage.index}</span>
+                {isActive && <div className="font-mono-tech text-[9px] uppercase tracking-[0.18em] text-white mt-1 whitespace-nowrap">{stage.title}</div>}
               </div>
             );
           })}
         </motion.div>
 
-        {/* Bottom Active Card Info Bar */}
+        {/* Legacy click controls remain mounted for the original navigation, but the cinematic overlay keeps them out of view. */}
         <motion.div
           animate={{
-            opacity: (isScalingNganya || isNganyaPageOpen) ? 0 : 1,
-            y: (isScalingNganya || isNganyaPageOpen) ? 45 : 0,
+            opacity: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 0 : 1,
+            y: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 45 : 0,
           }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: (isScalingNganya || isNganyaPageOpen) ? 0 : 0.45 }}
-          className="absolute bottom-3 sm:bottom-4 left-6 right-6 sm:left-14 sm:right-14 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-4.5 bg-slate-950/85 border border-white/15 rounded-2xl backdrop-blur-xl pointer-events-auto"
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: (isScalingNganya || isNganyaPageOpen || isSmochaPageOpen) ? 0 : 0.45 }}
+          className="hidden"
         >
           <div>
             <div className="font-mono-tech text-xs uppercase tracking-widest text-amber-400 mb-1">
@@ -718,6 +729,15 @@ export default function CulturalGrid() {
             stage={CULTURAL_STAGES[0]}
             onClose={handleNganyaClose}
           />
+        )}
+      </AnimatePresence>
+
+
+
+      {/* Dedicated Smocha Page */}
+      <AnimatePresence>
+        {isSmochaPageOpen && (
+          <SmochaPage onClose={handleSmochaClose} />
         )}
       </AnimatePresence>
 
