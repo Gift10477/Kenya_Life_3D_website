@@ -18,7 +18,7 @@ const MATATU_MODEL_URLS = [
   `${import.meta.env.BASE_URL}models/mood-transformed.glb`,
 ];
 
-function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {
+function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = false }) {
   const pivotRef = useRef();
   const { scene } = useGLTF(modelUrl, true);
   const model = useMemo(() => scene?.clone(true), [scene]);
@@ -27,8 +27,8 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {
     if (!model) return;
     model.traverse((child) => {
       if (!child.isMesh) return;
-      child.castShadow = false;
-      child.receiveShadow = false;
+      child.castShadow = !isMobile;
+      child.receiveShadow = !isMobile;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => {
         if (!material) return;
@@ -63,14 +63,13 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {
         });
       });
     };
-  }, [model]);
+  }, [model, isMobile]);
 
   useFrame((state, delta) => {
     if (document.hidden) return;
     const group = pivotRef.current;
     if (!group) return;
     if (autoRotate) group.rotation.y += delta * 0.2;
-    // Slightly more visible float for more presence
     group.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.035;
   });
 
@@ -151,6 +150,7 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.1;
+    gl.shadowMap.enabled = !isTouchDevice;
   };
 
   return (
@@ -172,17 +172,18 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
 
       {/* Canvas */}
       <Canvas
-        dpr={isTouchDevice ? [1, 1.5] : [1, 2.0]}
+        dpr={[1, isTouchDevice ? 1.5 : 2.0]}
         gl={{
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
+          precision: isTouchDevice ? 'mediump' : 'highp',
           stencil: false,
         }}
         onCreated={handleCreated}
         className="w-full h-full"
       >
-        <PerspectiveCamera makeDefault position={[0, 1.2, DEFAULT_CAMERA_DISTANCE]} fov={40} />
+        <PerspectiveCamera makeDefault position={[0, 1.2, DEFAULT_CAMERA_DISTANCE]} fov={isTouchDevice ? 48 : 40} />
         <Environment preset="warehouse" />
 
         <ambientLight intensity={0.6} />
@@ -198,6 +199,7 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
             modelUrl={activeModel.modelUrl}
             autoRotate={autoRotate && !isExploring}
             scale={1.95}
+            isMobile={isTouchDevice}
           />
           <ContactShadows
             position={[0, -1.6, 0]}

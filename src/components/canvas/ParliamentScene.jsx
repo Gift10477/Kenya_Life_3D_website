@@ -9,17 +9,25 @@ const isMobileViewport = () =>
   typeof window !== 'undefined' &&
   (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024));
 
+// Pre-allocated static math instances to prevent garbage collection stutter
+const ORIGIN_TARGET = new THREE.Vector3(0, 0, 0);
+const COLOR_AMBER = new THREE.Color('#fbbf24');
+const COLOR_GOLD = new THREE.Color('#ffd580');
+const COLOR_ORANGE = new THREE.Color('#f97316');
+const COLOR_CRIMSON = new THREE.Color('#de2010');
+const PARTICLE_PALETTE = [COLOR_AMBER, COLOR_GOLD, COLOR_ORANGE, COLOR_CRIMSON];
+
 /**
  * GlowingSpatialParticles — High-efficiency 3D glowing particle field.
- * Optimized for mobile: renders lightweight points with GPU-only transformation (no CPU buffer mutation).
+ * Zero CPU buffer allocations in the render loop.
  */
 function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
   const pointsRef = useRef();
   const { mouse } = useThree();
 
-  const particleCount = isMobile ? 36 : 100;
+  const particleCount = isMobile ? 32 : 90;
 
-  // Procedural radiant particle glow texture (feathered star orb)
+  // Procedural radiant particle glow texture
   const glowTexture = useMemo(() => {
     if (typeof document === 'undefined') return null;
     const canvas = document.createElement('canvas');
@@ -52,12 +60,6 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
     const pos = new Float32Array(particleCount * 3);
     const col = new Float32Array(particleCount * 3);
 
-    const amber = new THREE.Color('#fbbf24');
-    const gold = new THREE.Color('#ffd580');
-    const sunsetOrange = new THREE.Color('#f97316');
-    const crimson = new THREE.Color('#de2010');
-    const palette = [amber, gold, sunsetOrange, crimson];
-
     for (let i = 0; i < particleCount; i++) {
       const theta = Math.random() * Math.PI * 2;
       const radius = 2.5 + Math.random() * 8.0;
@@ -69,7 +71,7 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
       pos[i * 3 + 1] = y;
       pos[i * 3 + 2] = z;
 
-      const chosenColor = palette[Math.floor(Math.random() * palette.length)];
+      const chosenColor = PARTICLE_PALETTE[Math.floor(Math.random() * PARTICLE_PALETTE.length)];
       col[i * 3] = chosenColor.r;
       col[i * 3 + 1] = chosenColor.g;
       col[i * 3 + 2] = chosenColor.b;
@@ -82,7 +84,7 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
     if (!active || reducedMotion || !pointsRef.current || document.hidden) return;
     const time = state.clock.getElapsedTime();
 
-    // Smooth GPU rotation & gentle pointer sway without mutating CPU buffer arrays
+    // Smooth GPU rotation & pointer sway without mutating CPU buffer arrays
     const targetRotY = time * 0.04 + mouse.x * 0.2;
     const targetRotX = -mouse.y * 0.12 + Math.sin(time * 0.3) * 0.04;
     pointsRef.current.rotation.y += (targetRotY - pointsRef.current.rotation.y) * Math.min(1, delta * 2.0);
@@ -120,32 +122,29 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
 }
 
 /**
- * ResponsiveCameraController — Dynamically adapts camera perspective and distance.
- * Crucially avoids extreme wide-angle FOV expansion on narrow mobile screens (which creates conical/distorted buildings),
- * instead holding a natural 44° architectural perspective and adjusting Z-distance proportionally.
+ * ResponsiveCameraController — Dynamically adapts FOV and position.
+ * On mobile portrait (aspect < 1.0 or width < 768px), widens camera FOV (65-70°)
+ * and adjusts position so the Parliament model is fully framed without edge stretching or cropping.
  */
-function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef }) {
+function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMobile }) {
   const { camera, size } = useThree();
 
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
+    const isPortrait = aspect < 1.0 || size.width < 768;
 
-    // Narrow mobile portrait screens (e.g. aspect < 0.85)
-    if (aspect < 0.85) {
-      // Natural 44° FOV avoids wide-angle edge warping; adjust distance to fit frame cleanly
-      camera.fov = 44;
-      camera.position.z = 8.6 * (0.85 / Math.max(0.48, aspect)) * 0.86;
-      camera.position.y = 0.5;
+    if (isPortrait) {
+      // Mobile portrait: dynamically widen FOV to 65-70° and adjust position for complete framing
+      camera.fov = Math.min(70, Math.max(65, 66 + (0.75 - aspect) * 8));
+      camera.position.set(0, 0.35, 7.8);
     } else if (aspect < 1.2) {
       // Tablets / square viewports
-      camera.fov = 45;
-      camera.position.z = 9.2;
-      camera.position.y = 0.6;
+      camera.fov = 52;
+      camera.position.set(0, 0.55, 8.4);
     } else {
       // Desktop widescreen landscape
-      camera.fov = 46;
-      camera.position.z = 8.8;
-      camera.position.y = 0.75;
+      camera.fov = 45;
+      camera.position.set(0, 0.75, 8.8);
     }
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
@@ -154,14 +153,13 @@ function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef }) {
   useFrame((state, delta) => {
     if (!active || reducedMotion || document.hidden) return;
 
-    const isMobile = size.width < 768;
     if (!isMobile) {
       const targetCamX = state.pointer.x * 0.35;
       const targetCamY = 0.75 + state.pointer.y * 0.2;
       camera.position.x += (targetCamX - camera.position.x) * Math.min(1, delta * 3.0);
       camera.position.y += (targetCamY - camera.position.y) * Math.min(1, delta * 3.0);
     }
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(ORIGIN_TARGET);
 
     // Apply damping / inertia decay to drag offset
     if (dragOffsetRef.current) {
@@ -173,7 +171,7 @@ function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef }) {
   return null;
 }
 
-function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef, dragOffsetRef }) {
+function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef, dragOffsetRef, isMobile }) {
   const groupRef = useRef();
   const { scene } = useGLTF(PARLIAMENT_MODEL_URL);
   const { gl } = useThree();
@@ -186,12 +184,12 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
   useEffect(() => {
     if (!model) return;
 
-    const maxAnisotropy = Math.min(gl.capabilities?.getMaxAnisotropy?.() || 4, 8);
+    const maxAnisotropy = Math.min(4, gl.capabilities?.getMaxAnisotropy?.() || 4);
 
     model.traverse((child) => {
       if (!child.isMesh) return;
-      child.castShadow = false;
-      child.receiveShadow = false;
+      child.castShadow = !isMobile;
+      child.receiveShadow = !isMobile;
 
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((mat) => {
@@ -200,7 +198,7 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
         // Render both sides to avoid missing polygons / dark see-through patches
         mat.side = THREE.DoubleSide;
 
-        // Clean natural architectural matte finish (prevents dark mirror blotches)
+        // Clean natural architectural matte finish
         if ('metalness' in mat) {
           mat.metalness = Math.min(mat.metalness ?? 0, 0.08);
         }
@@ -211,7 +209,7 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
           mat.envMapIntensity = 0.25;
         }
 
-        // Texture filtering, normal map preservation, and SRGB color space configuration
+        // Texture filtering, anisotropy and color space
         ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap'].forEach((texKey) => {
           const texture = mat[texKey];
           if (texture && texture.isTexture) {
@@ -220,8 +218,8 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
             texture.generateMipmaps = true;
             if (texKey === 'map') {
               texture.colorSpace = THREE.SRGBColorSpace;
+              texture.anisotropy = maxAnisotropy;
             }
-            texture.anisotropy = maxAnisotropy;
             texture.needsUpdate = true;
           }
         });
@@ -244,7 +242,7 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
         });
       });
     };
-  }, [model, gl]);
+  }, [model, gl, isMobile]);
 
   useFrame((state) => {
     const group = groupRef.current;
@@ -326,14 +324,15 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
     }
   };
 
-  const modelScale = isMobile ? 17.5 : 20.0;
+  const modelScale = isMobile ? 18.0 : 20.0;
 
   const handleCreated = ({ gl }) => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.15;
-    if (gl.shadowMap) {
-      gl.shadowMap.enabled = false;
+    gl.toneMappingExposure = 1.1;
+    gl.shadowMap.enabled = !isMobile;
+    if (gl.shadowMap.enabled) {
+      gl.shadowMap.type = THREE.PCFSoftShadowMap;
     }
   };
 
@@ -355,18 +354,20 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
+          precision: isMobile ? 'mediump' : 'highp',
           stencil: false,
           depth: true,
         }}
         onCreated={handleCreated}
         className="w-full h-full"
       >
-        <PerspectiveCamera makeDefault position={[0, 0.6, 9.0]} fov={46} />
+        <PerspectiveCamera makeDefault position={[0, 0.6, 9.0]} fov={isMobile ? 66 : 45} />
 
         <ResponsiveCameraController
           active={active}
           reducedMotion={reducedMotion}
           dragOffsetRef={dragOffsetRef}
+          isMobile={isMobile}
         />
 
         {/* Soft, balanced ambient base lighting for even architectural illumination */}
@@ -394,9 +395,10 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
             scale={modelScale}
             scrollRotationRef={scrollRotationRef}
             dragOffsetRef={dragOffsetRef}
+            isMobile={isMobile}
           />
 
-          {/* Static ground shadow catcher (renders once on load to conserve mobile GPU) */}
+          {/* Static ground shadow catcher */}
           <ContactShadows
             position={[0, -2.1, 0]}
             opacity={0.45}

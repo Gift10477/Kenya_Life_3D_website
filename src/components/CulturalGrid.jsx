@@ -293,6 +293,7 @@ export default function CulturalGrid() {
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
+      precision: isMobile ? 'mediump' : 'highp',
       stencil: false,
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
@@ -300,6 +301,8 @@ export default function CulturalGrid() {
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    renderer.shadowMap.enabled = false;
     rendererRef.current = renderer;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
