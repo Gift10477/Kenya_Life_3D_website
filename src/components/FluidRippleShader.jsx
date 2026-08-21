@@ -133,7 +133,8 @@ export default function FluidRippleShader() {
   const pointsRef = useRef(new Array(MAX_POINTS).fill(0).map(() => new THREE.Vector3(0, 0, 0)));
   const velocitiesRef = useRef(new Array(MAX_POINTS).fill(0).map(() => new THREE.Vector2(0, 0)));
   const currentIndexRef = useRef(0);
-  const prevMouseRef = useRef(new THREE.Vector2(0.5, 0.5));
+  const currentMouseRef = useRef(new THREE.Vector2(0.5, 0.5));
+  const velVecRef = useRef(new THREE.Vector2(0, 0));
 
   const uniforms = useMemo(
     () => ({
@@ -151,11 +152,11 @@ export default function FluidRippleShader() {
 
   useEffect(() => {
     const handleMouseMove = (e) => {
-      const x = e.clientX / window.innerWidth;
-      const y = 1.0 - e.clientY / window.innerHeight; // Invert Y for GLSL coordinates
+      const x = e.clientX / Math.max(window.innerWidth, 1);
+      const y = 1.0 - e.clientY / Math.max(window.innerHeight, 1); // Invert Y for GLSL coordinates
 
-      const currentMouse = new THREE.Vector2(x, y);
-      const vel = new THREE.Vector2().subVectors(currentMouse, prevMouseRef.current);
+      const currentMouse = currentMouseRef.current.set(x, y);
+      const vel = velVecRef.current.subVectors(currentMouse, prevMouseRef.current);
       const speed = vel.length();
 
       if (speed > 0.001) {
@@ -169,12 +170,12 @@ export default function FluidRippleShader() {
       prevMouseRef.current.copy(currentMouse);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   useFrame((state, delta) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || document.hidden) return;
     
     // Decay trail points smoothly
     for (let i = 0; i < MAX_POINTS; i++) {

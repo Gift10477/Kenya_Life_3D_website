@@ -27,18 +27,46 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {
     if (!model) return;
     model.traverse((child) => {
       if (!child.isMesh) return;
-      child.castShadow = true;
-      child.receiveShadow = true;
+      child.castShadow = false;
+      child.receiveShadow = false;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => {
         if (!material) return;
         if ('metalness' in material) material.metalness = Math.max(material.metalness || 0, 0.26);
         if ('roughness' in material) material.roughness = Math.min(material.roughness || 1, 0.42);
+
+        ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'].forEach((texKey) => {
+          const texture = material[texKey];
+          if (texture && texture.isTexture) {
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            if (texKey === 'map') {
+              texture.colorSpace = THREE.SRGBColorSpace;
+            }
+          }
+        });
       });
     });
+
+    return () => {
+      // Clean up cloned model resources to prevent memory leaks across vehicle switching
+      model.traverse((child) => {
+        if (!child.isMesh) return;
+        child.geometry?.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'].forEach((texKey) => {
+            mat[texKey]?.dispose();
+          });
+          mat?.dispose();
+        });
+      });
+    };
   }, [model]);
 
   useFrame((state, delta) => {
+    if (document.hidden) return;
     const group = pivotRef.current;
     if (!group) return;
     if (autoRotate) group.rotation.y += delta * 0.2;
@@ -58,7 +86,7 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {
 
 function SmoothCameraController({ targetDistance, controlsRef }) {
   useFrame((_, delta) => {
-    if (!controlsRef.current) return;
+    if (!controlsRef.current || document.hidden) return;
     const controls = controlsRef.current;
     const camera = controls.object;
     const target = controls.target;
@@ -93,7 +121,7 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
   const activeModel = models[currentIndex] || models[0];
 
   useEffect(() => {
-    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 1024);
   }, []);
 
   useEffect(() => {
@@ -119,6 +147,12 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
     }
   };
 
+  const handleCreated = ({ gl }) => {
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.1;
+  };
+
   return (
     <div
       className={`relative w-full overflow-hidden ${fullBleed
@@ -138,20 +172,25 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
 
       {/* Canvas */}
       <Canvas
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        dpr={isTouchDevice ? [1, 1.5] : [1, 2.0]}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          stencil: false,
+        }}
+        onCreated={handleCreated}
         className="w-full h-full"
-        shadows
       >
         <PerspectiveCamera makeDefault position={[0, 1.2, DEFAULT_CAMERA_DISTANCE]} fov={40} />
         <Environment preset="warehouse" />
 
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[4, 5, 3]} intensity={2.2} color="#fff8f0" castShadow />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[4, 5, 3]} intensity={2.0} color="#fff8f0" />
         {/* Model accent rims */}
-        <pointLight position={[-3, 1, 2]} intensity={12} distance={7} color="#a855f7" />
-        <pointLight position={[3, -1, 2]} intensity={8} distance={6} color="#6366f1" />
-        <pointLight position={[0, 3, -2]} intensity={6} distance={5} color="#fbbf24" />
+        <pointLight position={[-3, 1, 2]} intensity={10} distance={7} color="#a855f7" />
+        <pointLight position={[3, -1, 2]} intensity={7} distance={6} color="#6366f1" />
+        <pointLight position={[0, 3, -2]} intensity={5} distance={5} color="#fbbf24" />
 
         <Suspense fallback={null}>
           <VehicleAsset
@@ -162,10 +201,12 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
           />
           <ContactShadows
             position={[0, -1.6, 0]}
-            opacity={0.55}
+            opacity={0.5}
             scale={8}
-            blur={2.8}
+            blur={2.4}
             far={3}
+            resolution={isTouchDevice ? 256 : 512}
+            frames={1}
             color="#020406"
           />
         </Suspense>

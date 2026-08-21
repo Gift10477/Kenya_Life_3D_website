@@ -13,39 +13,21 @@ import { useGLTF } from '@react-three/drei';
  * 4. Fades out seamlessly once assets are cached.
  */
 
-// 3D Models to pre-warm
-const MODEL_URLS = [
-  `${import.meta.env.BASE_URL}models/parliament-transformed.glb`,
-  `${import.meta.env.BASE_URL}models/optimus1-transformed.glb`,
-  `${import.meta.env.BASE_URL}models/moneyfest-transformed.glb`,
-  `${import.meta.env.BASE_URL}models/mood-transformed.glb`,
-];
+// Essential Hero 3D Model
+const HERO_MODEL_URL = `${import.meta.env.BASE_URL}models/parliament-transformed.glb`;
 
-// Main photography assets
+// Main photography assets needed immediately
 const HERO_IMAGES = [
   `${import.meta.env.BASE_URL}images/nairobi_sunset.jpg`,
-  `${import.meta.env.BASE_URL}images/nairobi.jpg`,
   `${import.meta.env.BASE_URL}images/lion.jpg`,
-  `${import.meta.env.BASE_URL}images/leopard.jpg`,
-  `${import.meta.env.BASE_URL}images/elephant.jpg`,
-  `${import.meta.env.BASE_URL}images/buffalo.jpg`,
-  `${import.meta.env.BASE_URL}images/rhino.jpg`,
   `${import.meta.env.BASE_URL}images/nganya.jpeg`,
+  `${import.meta.env.BASE_URL}images/nairobi.jpg`,
+  `${import.meta.env.BASE_URL}frames_smocha/frame_0001.jpg`,
 ];
 
-// Generate all 240 Smocha frames for background downloading
-const TOTAL_SMOCHA_FRAMES = 240;
-const SMOCHA_FRAMES = Array.from({ length: TOTAL_SMOCHA_FRAMES }, (_, i) => {
-  const padded = String(i + 1).padStart(4, '0');
-  return `${import.meta.env.BASE_URL}frames_smocha/frame_${padded}.webp`;
-});
-
-// Preload models at module level for Three.js / Draco decoders
-MODEL_URLS.forEach((url) => useGLTF.preload(url));
-
 export default function KaribuPreloader({ onComplete }) {
-  const [progress, setProgress] = useState(0.04);
-  const [statusText, setStatusText] = useState('Initialising 3D spatial canvas...');
+  const [progress, setProgress] = useState(0.08);
+  const [statusText, setStatusText] = useState('Initialising spatial canvas...');
   const [phase, setPhase] = useState('loading'); // 'loading' | 'fading' | 'gone'
   const onCompleteRef = useRef(onComplete);
   const completedRef = useRef(false);
@@ -56,16 +38,15 @@ export default function KaribuPreloader({ onComplete }) {
 
   useEffect(() => {
     let totalLoaded = 0;
-    const totalAssets = MODEL_URLS.length + HERO_IMAGES.length + TOTAL_SMOCHA_FRAMES;
+    const totalAssets = 1 + HERO_IMAGES.length;
     const startTime = Date.now();
-    const MIN_DURATION = 2000; // Minimum 2s for premium brand reveal
-    const MAX_TIMEOUT = 5000;  // Safety ceiling
+    const MIN_DURATION = 1400; // Snappy, smooth brand reveal
+    const MAX_TIMEOUT = 3200;  // Safety ceiling
 
     const updateProgress = (text) => {
       totalLoaded++;
       const rawProgress = totalLoaded / totalAssets;
-      // Exponential smoothing for realistic progress bar
-      setProgress(Math.max(0.08, rawProgress));
+      setProgress(Math.max(0.15, rawProgress));
       if (text) setStatusText(text);
 
       if (totalLoaded >= totalAssets) {
@@ -77,7 +58,7 @@ export default function KaribuPreloader({ onComplete }) {
       if (completedRef.current) return;
       completedRef.current = true;
       setProgress(1);
-      setStatusText('Experience ready');
+      setStatusText('Karibu Kenya');
 
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, MIN_DURATION - elapsed);
@@ -87,50 +68,25 @@ export default function KaribuPreloader({ onComplete }) {
         setTimeout(() => {
           setPhase('gone');
           onCompleteRef.current?.();
-        }, 750);
+        }, 600);
       }, remaining);
     };
 
     // Hard fallback timer
     const safetyTimer = setTimeout(finish, MAX_TIMEOUT);
 
-    // 1. Download 3D Models in Background
-    MODEL_URLS.forEach((url) => {
-      fetch(url, { mode: 'cors' })
-        .then(() => updateProgress('Caching 3D models...'))
-        .catch(() => updateProgress());
-    });
+    // 1. Download & pre-warm Hero 3D Model
+    fetch(HERO_MODEL_URL, { mode: 'cors' })
+      .then(() => updateProgress('Pre-warming 3D Parliament...'))
+      .catch(() => updateProgress());
 
-    // 2. Download Hero & Chapter Images
+    // 2. Download Hero Images
     HERO_IMAGES.forEach((src) => {
       const img = new Image();
       img.src = src;
       img.onload = () => updateProgress('Loading archive imagery...');
       img.onerror = () => updateProgress();
     });
-
-    // 3. Batch Download Smocha Frames (in concurrent pools of 12)
-    const loadSmochaBatch = async () => {
-      const poolSize = 12;
-      for (let i = 0; i < SMOCHA_FRAMES.length; i += poolSize) {
-        const batch = SMOCHA_FRAMES.slice(i, i + poolSize);
-        await Promise.all(
-          batch.map(
-            (src) =>
-              new Promise((resolve) => {
-                const img = new Image();
-                img.src = src;
-                img.onload = img.onerror = () => {
-                  updateProgress('Pre-caching Smocha layers...');
-                  resolve();
-                };
-              })
-          )
-        );
-      }
-    };
-
-    loadSmochaBatch();
 
     return () => {
       clearTimeout(safetyTimer);

@@ -285,18 +285,21 @@ export default function CulturalGrid() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const width = canvas.clientWidth || window.innerWidth;
-    const height = canvas.clientHeight || window.innerHeight;
+    const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024);
+    const maxDpr = isMobile ? 1.5 : 2.0;
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
+      stencil: false,
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
     rendererRef.current = renderer;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -314,10 +317,19 @@ export default function CulturalGrid() {
     scene.add(dirLight);
 
     const panels = [];
+    const disposedResources = {
+      geometries: [],
+      materials: [],
+      textures: [],
+    };
+
     const { geometry } = createRoundedPlaneGeometry(5.8, 3.65, 0.04, 8);
+    disposedResources.geometries.push(geometry);
 
     CULTURAL_STAGES.forEach((stage, i) => {
       const texture = createCardTexture(stage, i, CULTURAL_STAGES.length);
+      disposedResources.textures.push(texture);
+
       const material = new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -325,6 +337,7 @@ export default function CulturalGrid() {
         metalness: 0.1,
         side: THREE.DoubleSide,
       });
+      disposedResources.materials.push(material);
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.userData = { index: i, stage };
@@ -343,13 +356,20 @@ export default function CulturalGrid() {
       gCtx.fillRect(0, 0, 256, 256);
 
       const glowTexture = new THREE.CanvasTexture(glowCanvas);
+      glowTexture.colorSpace = THREE.SRGBColorSpace;
+      disposedResources.textures.push(glowTexture);
+
       const shadowMat = new THREE.MeshBasicMaterial({
         map: glowTexture,
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
       });
+      disposedResources.materials.push(shadowMat);
+
       const shadowGeom = new THREE.PlaneGeometry(6.6, 4.3);
+      disposedResources.geometries.push(shadowGeom);
+
       const shadowMesh = new THREE.Mesh(shadowGeom, shadowMat);
       shadowMesh.position.z = -0.03;
       mesh.add(shadowMesh);
@@ -359,8 +379,25 @@ export default function CulturalGrid() {
     });
     panelsRef.current = panels;
 
+    let isVisible = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          isVisible = entry.isIntersecting;
+        });
+      },
+      { threshold: 0.01 }
+    );
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
+
+      if (document.hidden || !isVisible) {
+        return;
+      }
 
       currentProgressRef.current += (targetProgressRef.current - currentProgressRef.current) * 0.12;
       const curProg = currentProgressRef.current;
@@ -410,11 +447,19 @@ export default function CulturalGrid() {
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(w, h);
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      observer.disconnect();
+
+      // Clean up GPU textures, geometries, and materials
+      disposedResources.textures.forEach((t) => t.dispose());
+      disposedResources.materials.forEach((m) => m.dispose());
+      disposedResources.geometries.forEach((g) => g.dispose());
       renderer.dispose();
     };
   }, []);
