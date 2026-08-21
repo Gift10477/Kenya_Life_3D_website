@@ -11,10 +11,12 @@
   "dependencies": {
     "@react-three/drei": "^9.121.5",
     "@react-three/fiber": "^8.17.14",
+    "@react-three/postprocessing": "^3.0.5",
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.7",
     "gsap": "^3.12.7",
     "lucide-react": "^0.475.0",
+    "postprocessing": "^6.39.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.0.1",
@@ -26,6 +28,7 @@
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.173.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.0.7",
     "vite": "^6.1.0"
   }

@@ -40,7 +40,6 @@ function initCursorTracker() {
   };
 
   const updatePhysics = (now) => {
-    const dt = Math.max(1, now - lastTime) / 1000;
     lastTime = now;
 
     // Calculate mouse speed and velocity vector

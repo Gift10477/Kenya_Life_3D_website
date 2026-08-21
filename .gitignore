@@ -39,15 +39,3 @@ build/
 *.sw?
 .DS_Store
 Thumbs.db
-
-# 3D Models & Large Binary Assets
-# Models are excluded from git tracking to keep repository lightweight.
-public/models/
-models/
-*.glb
-*.gltf
-*.obj
-*.fbx
-*.bin
-*.usdz
-*.hdr

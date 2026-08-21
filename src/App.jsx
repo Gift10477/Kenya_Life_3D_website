@@ -1,69 +1,122 @@
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import HeroSection from './components/HeroSection';
-import CulturalGrid from './components/CulturalGrid';
-import EdgeFlagAccent from './components/EdgeFlagAccent';
-import { useContentScale } from './hooks/useContentScale';
-import { Heart, Globe, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Navbar from './components/ui/Navbar';
+import ChapterNavigation from './components/ui/ChapterNavigation';
+import KaribuPreloader from './components/ui/Preloader';
+import ChapterTransition from './components/ui/ChapterTransition';
+import HeroChapter from './components/sections/HeroChapter';
+import MatatuShowcaseChapter from './components/sections/MatatuShowcaseChapter';
+import SmochaExplodedChapter from './components/sections/SmochaExplodedChapter';
+import EpilogueChapter from './components/sections/EpilogueChapter';
+import { getPinnedChapterScrollY } from './constants/scrollTargets';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('hero');
-  useContentScale();
+  const [preloaderDone, setPreloaderDone] = useState(false);
 
-  const handleNavigate = (sectionId) => {
-    setActiveSection(sectionId);
-    if (sectionId === 'hero') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      const target = document.getElementById(sectionId) || document.getElementById('cultural-grid');
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
+  const handlePreloaderComplete = useCallback(() => {
+    setPreloaderDone(true);
+  }, []);
+
+  // Unified scroll position tracking for all sections
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const heroExp = document.getElementById('hero-experience');
+      const pinSpacer = heroExp?.parentElement?.classList.contains('pin-spacer') ? heroExp.parentElement : heroExp;
+
+      const otherSections = ['epilogue', 'smocha', 'matatu'];
+      for (const id of otherSections) {
+        const el = document.getElementById(id);
+        if (el && scrollY + window.innerHeight * 0.35 >= el.offsetTop) {
+          setActiveSection(id);
+          return;
+        }
       }
-    }
+
+      if (pinSpacer) {
+        const spacerTop = pinSpacer.offsetTop;
+        const totalSpacerScroll = pinSpacer.offsetHeight - window.innerHeight;
+        if (totalSpacerScroll > 0) {
+          const progress = (scrollY - spacerTop) / totalSpacerScroll;
+          if (progress >= 0.65) {
+            setActiveSection('bigfive');
+            return;
+          } else if (progress >= 0.18) {
+            setActiveSection('discovery');
+            return;
+          } else {
+            setActiveSection('hero');
+            return;
+          }
+        }
+      }
+
+      setActiveSection('hero');
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleExploreClick = () => {
+    window.scrollTo({ top: getPinnedChapterScrollY('discovery'), behavior: 'smooth' });
   };
 
   return (
-    <div className="min-h-screen bg-[#05070a] text-slate-100 flex flex-col font-sans selection:bg-[#de2010] selection:text-white">
-      {/* Ambient Edge Flag Accents */}
-      <EdgeFlagAccent />
+    <div className="min-h-screen bg-[#030508] text-slate-100 flex flex-col font-sans selection:bg-[#de2010] selection:text-white">
+      {/* Cinematic Preloader — unmounts completely when done */}
+      {!preloaderDone && (
+        <KaribuPreloader onComplete={handlePreloaderComplete} />
+      )}
 
       {/* Top Glassmorphic Navigation */}
-      <Navbar onNavigate={handleNavigate} activeSection={activeSection} />
+      <Navbar activeSection={activeSection} />
 
-      {/* Hero Section with 3D Canvas, Parliament Model, 3D Typography & Liquid Ripple */}
+      {/* Fixed Right Chapter Indicator */}
+      <ChapterNavigation activeSection={activeSection} />
+
+      {/* Continuous Chapters */}
       <main className="flex-1">
-        <HeroSection onExploreClick={() => handleNavigate('cultural-grid')} />
-        <CulturalGrid />
+        {/* Chapter 01–03: Hero + Discovery + Big Five (GSAP pinned scroll) */}
+        <HeroChapter onExploreClick={handleExploreClick} onSectionChange={setActiveSection} />
+
+        {/* Chapter transition wipe: Big Five → Nganya */}
+        <ChapterTransition
+          fromNum="03"
+          toNum="04"
+          fromLabel="Big Five"
+          toLabel="Nganya"
+          accentColor="#a855f7"
+        />
+
+        {/* Chapter 04: Matatu / Nganya */}
+        <MatatuShowcaseChapter />
+
+        {/* Chapter transition wipe: Nganya → Smocha */}
+        <ChapterTransition
+          fromNum="04"
+          toNum="05"
+          fromLabel="Nganya"
+          toLabel="Smocha"
+          accentColor="#eab308"
+        />
+
+        {/* Chapter 05: Smocha Deconstruction */}
+        <SmochaExplodedChapter />
+
+        {/* Chapter transition wipe: Smocha → Epilogue */}
+        <ChapterTransition
+          fromNum="05"
+          toNum="06"
+          fromLabel="Smocha"
+          toLabel="Epilogue"
+          accentColor="#10b981"
+        />
+
+        {/* Chapter 06: Harambee Epilogue */}
+        <EpilogueChapter />
       </main>
-
-      {/* Footer Section */}
-      <footer className="border-t border-white/10 bg-[#080c14] py-12 px-6 relative z-10">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🇰🇪</span>
-            <div className="flex flex-col">
-              <span className="font-heading font-extrabold text-white text-base tracking-wider">
-                KARIBU KENYA
-              </span>
-              <span className="text-xs font-mono-tech text-slate-400">
-                Interactive WebGL Cultural Showcase
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-mono-tech text-slate-400">
-            <span>Crafted with</span>
-            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            <span>using React Three Fiber & Custom GLSL Shaders</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-mono-tech text-slate-400">
-            <span className="hover:text-amber-400 cursor-pointer transition-colors">Nairobi, Kenya</span>
-            <span>•</span>
-            <span className="hover:text-emerald-400 cursor-pointer transition-colors">Harambee Spirit</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

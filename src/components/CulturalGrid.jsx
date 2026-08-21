@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { Bus, ShoppingBag, Building2, Utensils, ArrowRight, X, Sparkles, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bus, ShoppingBag, Building2, Utensils, ArrowRight, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import NganyaPage from './NganyaPage';
-import SmochaPage from './SmochaPage';
 
 const CULTURAL_STAGES = [
   {
@@ -14,7 +12,7 @@ const CULTURAL_STAGES = [
     badge: 'Urban Energy',
     icon: Bus,
     description: "Experience Nairobi's iconic mobile art galleries—graffiti-covered buses with custom sound systems, LED displays, and raw urban street energy.",
-    image: '/images/nganya1.jpg',
+    image: '/images/nganya.jpeg',
     color: '#a855f7',
     accentGrad: 'from-purple-500/20 to-purple-900/40',
     stats: ['15,000+ Active Matatus', 'Custom Bass Audio', 'Street Graffiti Art'],
@@ -266,18 +264,7 @@ export default function CulturalGrid() {
   const activeIdx = Math.min(CULTURAL_STAGES.length - 1, Math.max(0, Math.round(scrollProgress)));
 
   const handleStageOpen = useCallback((stage) => {
-    if (stage.id === 'matatu') {
-      setScaleDirection('up');
-      setIsScalingNganya(true);
-      setTimeout(() => {
-        setIsNganyaPageOpen(true);
-        setIsScalingNganya(false);
-      }, 1050);
-    } else if (stage.id === 'smocha') {
-      setIsSmochaPageOpen(true);
-    } else {
-      setSelectedStage(stage);
-    }
+    setSelectedStage(stage);
   }, []);
 
   const handleNganyaClose = useCallback(() => {
@@ -707,7 +694,7 @@ export default function CulturalGrid() {
             >
               {/* Background Cover Image */}
               <img
-                src="/images/nganya1.jpg"
+                src="/images/nganya.jpeg"
                 alt="Nganya Cover"
                 className="w-full h-full object-cover object-center filter brightness-95 contrast-105"
               />
@@ -719,25 +706,6 @@ export default function CulturalGrid() {
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-purple-500" />
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Dedicated Nganya Web Page */}
-      <AnimatePresence>
-        {isNganyaPageOpen && (
-          <NganyaPage
-            stage={CULTURAL_STAGES[0]}
-            onClose={handleNganyaClose}
-          />
-        )}
-      </AnimatePresence>
-
-
-
-      {/* Dedicated Smocha Page */}
-      <AnimatePresence>
-        {isSmochaPageOpen && (
-          <SmochaPage onClose={handleSmochaClose} />
         )}
       </AnimatePresence>
 

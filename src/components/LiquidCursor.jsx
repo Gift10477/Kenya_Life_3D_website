@@ -3,7 +3,7 @@ import { useCursorField } from '../hooks/useCursorField';
 
 export const MOBILE_CURSOR_CUTOFF = 768;
 
-export default function LiquidCursor({ enabled }) {
+export default function LiquidCursor({ enabled = true }) {
   const cursor = useCursorField();
   const blobRef = useRef();
   const filterTurbulenceRef = useRef();
@@ -11,7 +11,6 @@ export default function LiquidCursor({ enabled }) {
   useEffect(() => {
     if (!enabled || window.innerWidth < MOBILE_CURSOR_CUTOFF) return;
 
-    // Check prefers-reduced-motion
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
@@ -43,7 +42,6 @@ export default function LiquidCursor({ enabled }) {
       <svg className="liquid-cursor__filter" width="0" height="0">
         <defs>
           <filter id="organic-rubber-lens" x="-50%" y="-50%" width="200%" height="200%">
-            {/* Multi-octave organic noise for irregular rubber boundary */}
             <feTurbulence
               ref={filterTurbulenceRef}
               type="fractalNoise"
