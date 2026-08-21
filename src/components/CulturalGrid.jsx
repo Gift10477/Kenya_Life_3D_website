@@ -12,7 +12,7 @@ const CULTURAL_STAGES = [
     badge: 'Urban Energy',
     icon: Bus,
     description: "Experience Nairobi's iconic mobile art galleries—graffiti-covered buses with custom sound systems, LED displays, and raw urban street energy.",
-    image: '/images/nganya.jpeg',
+    image: `${import.meta.env.BASE_URL}images/nganya.jpeg`,
     color: '#a855f7',
     accentGrad: 'from-purple-500/20 to-purple-900/40',
     stats: ['15,000+ Active Matatus', 'Custom Bass Audio', 'Street Graffiti Art'],
@@ -66,7 +66,7 @@ const CULTURAL_STAGES = [
     badge: 'Kenyan Street Food',
     icon: Utensils,
     description: 'The Kenyan street-food icon — a smokie wrapped in a golden chapati with kachumbari and sauce. Deconstructed across 240 cinematic frames.',
-    image: '/frames_smocha/frame_0001.jpg',
+    image: `${import.meta.env.BASE_URL}frames_smocha/frame_0001.jpg`,
     color: '#C99A55',
     accentGrad: 'from-amber-500/20 to-yellow-900/30',
     stats: ['240 Frames', 'Chapati & Smokie', 'Kachumbari'],
@@ -694,7 +694,7 @@ export default function CulturalGrid() {
             >
               {/* Background Cover Image */}
               <img
-                src="/images/nganya.jpeg"
+                src={`${import.meta.env.BASE_URL}images/nganya.jpeg`}
                 alt="Nganya Cover"
                 className="w-full h-full object-cover object-center filter brightness-95 contrast-105"
               />

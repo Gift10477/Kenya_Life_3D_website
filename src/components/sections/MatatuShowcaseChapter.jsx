@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import MatatuViewer from '../canvas/MatatuViewer';
 
 const MATATU_MODELS = [
-  { id: 'optimus', name: 'Optimus Prime', route: 'Route 111 • Ngong Road', slogan: 'Roll Out The Bass', modelUrl: '/models/optimus1-transformed.glb', award: 'King of Ngong Road', description: 'The Transformer-themed Nganya that redefined Nairobi matatu street culture, with custom air-bag suspension, a powerful sound rig, and hand-painted metallic murals.' },
-  { id: 'moneyfest', name: 'Moneyfest', route: 'Route 125 • Rongai Expressway', slogan: 'The Yellow Gold Rush', modelUrl: '/models/moneyfest-transformed.glb', award: 'Best Vibrant Design', description: 'A Rongai-route Nganya defined by solar-yellow paint, a golden sub-bass array, and a deliberately exuberant visual presence.' },
-  { id: 'mood', name: 'Mood', route: 'Route 58 • Buruburu', slogan: 'Electric Vibe & Cyber Pulse', modelUrl: '/models/mood-transformed.glb', award: 'King of Buruburu', description: 'A Buruburu Nganya with a high-output sound system, electric purple visual character, and the restless energy of a Nairobi route in motion.' },
+  { id: 'optimus', name: 'Optimus Prime', route: 'Route 111 • Ngong Road', slogan: 'Roll Out The Bass', modelUrl: `${import.meta.env.BASE_URL}models/optimus1-transformed.glb`, award: 'King of Ngong Road', description: 'The Transformer-themed Nganya that redefined Nairobi matatu street culture, with custom air-bag suspension, a powerful sound rig, and hand-painted metallic murals.' },
+  { id: 'moneyfest', name: 'Moneyfest', route: 'Route 125 • Rongai Expressway', slogan: 'The Yellow Gold Rush', modelUrl: `${import.meta.env.BASE_URL}models/moneyfest-transformed.glb`, award: 'Best Vibrant Design', description: 'A Rongai-route Nganya defined by solar-yellow paint, a golden sub-bass array, and a deliberately exuberant visual presence.' },
+  { id: 'mood', name: 'Mood', route: 'Route 58 • Buruburu', slogan: 'Electric Vibe & Cyber Pulse', modelUrl: `${import.meta.env.BASE_URL}models/mood-transformed.glb`, award: 'King of Buruburu', description: 'A Buruburu Nganya with a high-output sound system, electric purple visual character, and the restless energy of a Nairobi route in motion.' },
 ];
 
 export default function MatatuShowcaseChapter() {

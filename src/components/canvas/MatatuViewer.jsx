@@ -13,9 +13,9 @@ const MAX_CAMERA_DISTANCE = 6.2;
 const ZOOM_STEP = 0.65;
 
 const MATATU_MODEL_URLS = [
-  '/models/optimus1-transformed.glb',
-  '/models/moneyfest-transformed.glb',
-  '/models/mood-transformed.glb',
+  `${import.meta.env.BASE_URL}models/optimus1-transformed.glb`,
+  `${import.meta.env.BASE_URL}models/moneyfest-transformed.glb`,
+  `${import.meta.env.BASE_URL}models/mood-transformed.glb`,
 ];
 
 function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95 }) {

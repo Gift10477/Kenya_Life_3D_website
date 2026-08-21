@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  base: '/Kenya_Life_3D_website/',
   plugins: [
     react(),
     tailwindcss(),

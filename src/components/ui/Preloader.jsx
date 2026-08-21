@@ -15,29 +15,29 @@ import { useGLTF } from '@react-three/drei';
 
 // 3D Models to pre-warm
 const MODEL_URLS = [
-  '/models/parliament-transformed.glb',
-  '/models/optimus1-transformed.glb',
-  '/models/moneyfest-transformed.glb',
-  '/models/mood-transformed.glb',
+  `${import.meta.env.BASE_URL}models/parliament-transformed.glb`,
+  `${import.meta.env.BASE_URL}models/optimus1-transformed.glb`,
+  `${import.meta.env.BASE_URL}models/moneyfest-transformed.glb`,
+  `${import.meta.env.BASE_URL}models/mood-transformed.glb`,
 ];
 
 // Main photography assets
 const HERO_IMAGES = [
-  '/images/nairobi_sunset.jpg',
-  '/images/nairobi.jpg',
-  '/images/lion.jpg',
-  '/images/leopard.jpg',
-  '/images/elephant.jpg',
-  '/images/buffalo.jpg',
-  '/images/rhino.jpg',
-  '/images/nganya.jpeg',
+  `${import.meta.env.BASE_URL}images/nairobi_sunset.jpg`,
+  `${import.meta.env.BASE_URL}images/nairobi.jpg`,
+  `${import.meta.env.BASE_URL}images/lion.jpg`,
+  `${import.meta.env.BASE_URL}images/leopard.jpg`,
+  `${import.meta.env.BASE_URL}images/elephant.jpg`,
+  `${import.meta.env.BASE_URL}images/buffalo.jpg`,
+  `${import.meta.env.BASE_URL}images/rhino.jpg`,
+  `${import.meta.env.BASE_URL}images/nganya.jpeg`,
 ];
 
 // Generate all 240 Smocha frames for background downloading
 const TOTAL_SMOCHA_FRAMES = 240;
 const SMOCHA_FRAMES = Array.from({ length: TOTAL_SMOCHA_FRAMES }, (_, i) => {
   const padded = String(i + 1).padStart(4, '0');
-  return `/frames_smocha/frame_${padded}.webp`;
+  return `${import.meta.env.BASE_URL}frames_smocha/frame_${padded}.webp`;
 });
 
 // Preload models at module level for Three.js / Draco decoders

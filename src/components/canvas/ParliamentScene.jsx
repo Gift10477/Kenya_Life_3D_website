@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Center, ContactShadows, Environment, PerspectiveCamera, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-export const PARLIAMENT_MODEL_URL = '/models/parliament-transformed.glb';
+export const PARLIAMENT_MODEL_URL = `${import.meta.env.BASE_URL}models/parliament-transformed.glb`;
 
 /**
  * GlowingSpatialParticles — Pure 3D glowing particle field.

@@ -19,7 +19,7 @@ const DISCOVERY_PAGES_SLIDES = [
     subtitle: 'Nairobi Sunset & 3D Parliament Landmark',
     desc: 'The National Parliament clock tower and sunset skyline, reflecting sovereign heritage and modernist civic form.',
     stat: 'Est. 1954 • Interactive 3D Spatial Canvas',
-    image: '/images/nairobi_sunset.jpg',
+    image: `${import.meta.env.BASE_URL}images/nairobi_sunset.jpg`,
     accentColor: '#f59e0b',
     actionText: 'Scroll to Signal',
   },
@@ -32,7 +32,7 @@ const DISCOVERY_PAGES_SLIDES = [
     subtitle: 'Lion, Leopard, Elephant, Buffalo & Rhino',
     desc: 'Interactive 3D wildlife carousel celebrating Kenya’s majestic keystone species across the Maasai Mara and Amboseli.',
     stat: '5 Keystone Species • Morphing 3D Carousel',
-    image: '/images/lion.jpg',
+    image: `${import.meta.env.BASE_URL}images/lion.jpg`,
     accentColor: '#fbbf24',
     actionText: 'Explore Big Five →',
   },
@@ -45,7 +45,7 @@ const DISCOVERY_PAGES_SLIDES = [
     subtitle: 'Optimus Prime, Moneyfest & Mood 3D Models',
     desc: 'Customized Nairobi transit icons with bespoke audio rigs, glowing LED matrix ceilings, and airbrushed street graffiti.',
     stat: '3 3D GLB Models • 15,000+ Active Nganyas',
-    image: '/images/nganya.jpeg',
+    image: `${import.meta.env.BASE_URL}images/nganya.jpeg`,
     accentColor: '#a855f7',
     actionText: 'View Matatu Gallery →',
   },
@@ -58,7 +58,7 @@ const DISCOVERY_PAGES_SLIDES = [
     subtitle: '240-Frame Interactive Food Anatomy',
     desc: 'Cinematic scroll-scrubbed deconstruction of golden handmade chapati, savoury smokie, fresh kachumbari, and sauce.',
     stat: '240 Interactive Frames • Layer Breakdown',
-    image: '/frames_smocha/frame_0001.jpg',
+    image: `${import.meta.env.BASE_URL}frames_smocha/frame_0001.jpg`,
     accentColor: '#eab308',
     actionText: 'Scrub Smocha Layers →',
   },
@@ -360,7 +360,7 @@ export default function HeroChapter({ onExploreClick, onSectionChange }) {
           {/* Nairobi Sunset Skyline Background Layer */}
           <div className="hero-skyline-bg absolute inset-0 z-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
             <img
-              src="/images/nairobi_sunset.jpg"
+              src={`${import.meta.env.BASE_URL}images/nairobi_sunset.jpg`}
               alt="Nairobi Skyline at Sunset"
               className="hero-skyline-img w-full h-full object-cover object-[center_55%] opacity-70 filter saturate-[1.25] contrast-[1.12] brightness-[0.96]"
             />

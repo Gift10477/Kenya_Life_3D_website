@@ -27,7 +27,7 @@ const BATCH_DELAY_MS = 80;   // Stagger delay between batches
 
 const getFramePath = (index) => {
   const padded = String(index).padStart(4, '0');
-  return `/frames_smocha/frame_${padded}.webp`;
+  return `${import.meta.env.BASE_URL}frames_smocha/frame_${padded}.webp`;
 };
 
 const ANNOTATIONS = [
