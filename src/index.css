@@ -139,7 +139,7 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 22px rgba(222, 32, 16, 0.35)) drop-shadow(0 0 30px rgba(0, 106, 78, 0.3));
-  opacity: 0.60;
+  opacity: 0.65;
   user-select: none;
   pointer-events: none;
   white-space: nowrap;

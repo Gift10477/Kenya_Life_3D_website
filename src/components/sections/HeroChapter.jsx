@@ -152,7 +152,7 @@ export default function HeroChapter({ onExploreClick, onSectionChange }) {
 
     const context = gsap.context(() => {
       // Set explicit initial coordinate baseline to match CSS translate(-50%, -50%)
-      gsap.set('.hero-wordmark-kenya', { xPercent: -50, yPercent: -50, opacity: 0.40 });
+      gsap.set('.hero-wordmark-kenya', { xPercent: -50, yPercent: -50, opacity: 0.65 });
       gsap.set('.hero-wordmark-karibu', { xPercent: -180, yPercent: -50, opacity: 0 });
 
       // Main Pinned Scroll Timeline for Multi-Plane Parallax Transition into Big Five
@@ -208,7 +208,7 @@ export default function HeroChapter({ onExploreClick, onSectionChange }) {
         // KARIBU enters horizontally from the left and settles in the exact center
         tl.to(
           '.hero-wordmark-karibu',
-          { xPercent: -50, yPercent: -50, opacity: 0.40, ease: 'power2.inOut', duration: 0.16 },
+          { xPercent: -50, yPercent: -50, opacity: 0.65, ease: 'power2.inOut', duration: 0.16 },
           0.06
         );
 

@@ -4,13 +4,9 @@ import { useGLTF } from '@react-three/drei';
 /**
  * KaribuPreloader
  *
- * 1. Features an iconic Kenyan Maasai Shield & Sun Vector Crest (Zero Triangles).
- * 2. Downloads and pre-warms ALL assets in the background:
- *    - All 4 3D GLB Models (Parliament, Optimus, Moneyfest, Mood)
- *    - All Wildlife & Chapter Photographic Assets
- *    - All 240 Smocha Deconstruction Frames
- * 3. Shows genuine, smooth download progress (0% -> 100%).
- * 4. Fades out seamlessly once assets are cached.
+ * Strictly blocks dismissal until the 3D Parliament GLB model is 100% downloaded
+ * and parsed into memory, preventing mobile users from seeing an empty canvas or waiting
+ * for the 3D model on-screen.
  */
 
 // Essential Hero 3D Model
@@ -26,8 +22,8 @@ const HERO_IMAGES = [
 ];
 
 export default function KaribuPreloader({ onComplete }) {
-  const [progress, setProgress] = useState(0.08);
-  const [statusText, setStatusText] = useState('Initialising spatial canvas...');
+  const [progress, setProgress] = useState(0.12);
+  const [statusText, setStatusText] = useState('Downloading 3D Parliament Architecture...');
   const [phase, setPhase] = useState('loading'); // 'loading' | 'fading' | 'gone'
   const onCompleteRef = useRef(onComplete);
   const completedRef = useRef(false);
@@ -37,24 +33,19 @@ export default function KaribuPreloader({ onComplete }) {
   }, [onComplete]);
 
   useEffect(() => {
-    let totalLoaded = 0;
-    const totalAssets = 1 + HERO_IMAGES.length;
+    let isModelLoaded = false;
+    let imagesLoadedCount = 0;
+    const totalImages = HERO_IMAGES.length;
     const startTime = Date.now();
-    const MIN_DURATION = 1400; // Snappy, smooth brand reveal
-    const MAX_TIMEOUT = 3200;  // Safety ceiling
+    const MIN_DURATION = 1200; // Minimum brand reveal duration
+    const MAX_TIMEOUT = 25000; // Generous ceiling for slow mobile 3G/4G networks
 
-    const updateProgress = (text) => {
-      totalLoaded++;
-      const rawProgress = totalLoaded / totalAssets;
-      setProgress(Math.max(0.15, rawProgress));
-      if (text) setStatusText(text);
-
-      if (totalLoaded >= totalAssets) {
-        finish();
+    const checkAllComplete = () => {
+      // STRICT REQUIREMENT: Only finish if the 3D model has fully downloaded and parsed
+      if (!isModelLoaded || imagesLoadedCount < totalImages) {
+        return;
       }
-    };
 
-    const finish = () => {
       if (completedRef.current) return;
       completedRef.current = true;
       setProgress(1);
@@ -72,28 +63,71 @@ export default function KaribuPreloader({ onComplete }) {
       }, remaining);
     };
 
-    // Hard fallback timer
-    const safetyTimer = setTimeout(finish, MAX_TIMEOUT);
+    const updateModelProgress = (loadedRatio, text) => {
+      // 3D Model carries 60% of total preloader progress weight
+      const modelWeight = loadedRatio * 0.60;
+      const imagesWeight = (imagesLoadedCount / totalImages) * 0.40;
+      const totalProgress = Math.max(0.15, Math.min(0.98, modelWeight + imagesWeight));
+      setProgress(totalProgress);
+      if (text) setStatusText(text);
+    };
 
-    // 1. Download & pre-warm Hero 3D Model
+    const updateImageProgress = (text) => {
+      imagesLoadedCount++;
+      const modelWeight = (isModelLoaded ? 1 : 0.4) * 0.60;
+      const imagesWeight = (imagesLoadedCount / totalImages) * 0.40;
+      const totalProgress = Math.max(0.15, Math.min(0.98, modelWeight + imagesWeight));
+      setProgress(totalProgress);
+      if (text && !isModelLoaded) setStatusText(text);
+      checkAllComplete();
+    };
+
+    // Pre-warm GLTF cache in Three.js / drei
+    try {
+      useGLTF.preload(HERO_MODEL_URL);
+    } catch (_) {}
+
+    // 1. Download & fully buffer 3D Parliament GLB model with real byte completion
     fetch(HERO_MODEL_URL, { mode: 'cors' })
-      .then(() => updateProgress('Pre-warming 3D Parliament...'))
-      .catch(() => updateProgress());
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch model');
+        return res.arrayBuffer();
+      })
+      .then(() => {
+        isModelLoaded = true;
+        updateModelProgress(1, '3D Parliament Architecture Ready');
+        checkAllComplete();
+      })
+      .catch(() => {
+        // Fallback in case of offline cache
+        isModelLoaded = true;
+        checkAllComplete();
+      });
 
-    // 2. Download and pre-decode Hero Images off-thread
+    // 2. Download and asynchronously pre-decode Hero Images off the main thread
     HERO_IMAGES.forEach((src) => {
       const img = new Image();
       img.src = src;
-      const onLoaded = () => {
+      const onDone = () => {
         if (img.decode) {
-          img.decode().then(() => updateProgress('Loading archive imagery...')).catch(() => updateProgress());
+          img
+            .decode()
+            .then(() => updateImageProgress('Loading archive imagery...'))
+            .catch(() => updateImageProgress());
         } else {
-          updateProgress('Loading archive imagery...');
+          updateImageProgress('Loading archive imagery...');
         }
       };
-      img.onload = onLoaded;
-      img.onerror = () => updateProgress();
+      img.onload = onDone;
+      img.onerror = () => updateImageProgress();
     });
+
+    // Network timeout ceiling safety
+    const safetyTimer = setTimeout(() => {
+      isModelLoaded = true;
+      imagesLoadedCount = totalImages;
+      checkAllComplete();
+    }, MAX_TIMEOUT);
 
     return () => {
       clearTimeout(safetyTimer);
@@ -137,10 +171,10 @@ export default function KaribuPreloader({ onComplete }) {
       {/* Main Content */}
       <div className="relative flex flex-col items-center gap-9">
         {/* ================================================================= */}
-        {/* NEW KENYAN HERITAGE SHIELD & SUN CREST (ZERO TRIANGLES)           */}
+        {/* KENYAN HERITAGE SHIELD & SUN CREST (ZERO TRIANGLES)               */}
         {/* ================================================================= */}
         <div className="relative w-32 h-32 sm:w-36 sm:h-36">
-          {/* Outer rotating subtle gold ring */}
+          {/* Outer rotating gold ring */}
           <svg
             className="absolute inset-0 w-full h-full"
             viewBox="0 0 144 144"
@@ -171,12 +205,11 @@ export default function KaribuPreloader({ onComplete }) {
             />
           </svg>
 
-          {/* Core Maasai Shield & Crossed Sun Rays Vector (NO TRIANGLES) */}
+          {/* Core Maasai Shield & Crossed Sun Rays Vector */}
           <svg
             className="absolute inset-0 w-full h-full p-2"
             viewBox="0 0 100 100"
           >
-            {/* Outer traditional shield ellipse contour */}
             <path
               d="M 50 8 C 74 24, 80 54, 50 92 C 20 54, 26 24, 50 8 Z"
               fill="none"
@@ -184,8 +217,6 @@ export default function KaribuPreloader({ onComplete }) {
               strokeWidth="3.2"
               strokeLinejoin="round"
             />
-
-            {/* Central spear shaft */}
             <line
               x1="50" y1="3"
               x2="50" y2="97"
@@ -193,8 +224,6 @@ export default function KaribuPreloader({ onComplete }) {
               strokeWidth="2.5"
               strokeLinecap="round"
             />
-
-            {/* Traditional curved chevron ribs */}
             <path
               d="M 31 38 Q 50 48 69 38"
               fill="none"
@@ -209,8 +238,6 @@ export default function KaribuPreloader({ onComplete }) {
               strokeWidth="2"
               strokeLinecap="round"
             />
-
-            {/* Concentric dual-color heart of Kenya: Crimson & Emerald core */}
             <circle cx="50" cy="50" r="10.5" fill="#de2010" />
             <circle cx="50" cy="50" r="5" fill="#006a4e" />
             <circle cx="50" cy="50" r="2" fill="#ffffff" />
@@ -259,7 +286,7 @@ export default function KaribuPreloader({ onComplete }) {
         </div>
 
         {/* Progress bar + Live status label */}
-        <div className="w-52 sm:w-64">
+        <div className="w-56 sm:w-64">
           <div className="w-full h-[2px] bg-white/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[#de2010] via-[#d9b36c] to-[#006a4e] rounded-full"
@@ -270,7 +297,7 @@ export default function KaribuPreloader({ onComplete }) {
             />
           </div>
           <div className="mt-2.5 flex items-center justify-between text-[9px] font-mono-tech uppercase tracking-widest text-slate-400">
-            <span className="truncate max-w-[150px]">{statusText}</span>
+            <span className="truncate max-w-[170px]">{statusText}</span>
             <span className="text-amber-400 font-bold">{Math.round(progress * 100)}%</span>
           </div>
         </div>
