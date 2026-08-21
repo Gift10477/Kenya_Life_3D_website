@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from './components/ui/Navbar';
 import ChapterNavigation from './components/ui/ChapterNavigation';
 import KaribuPreloader from './components/ui/Preloader';
@@ -13,50 +13,121 @@ export default function App() {
   const [activeSection, setActiveSection] = useState('hero');
   const [preloaderDone, setPreloaderDone] = useState(false);
 
+  const cachedOffsetsRef = useRef({
+    heroSpacerTop: 0,
+    heroSpacerScroll: 0,
+    matatuTop: 0,
+    smochaTop: 0,
+    epilogueTop: 0,
+  });
+
+  const animFrameIdRef = useRef(null);
+  const targetScrollYRef = useRef(0);
+  const isUpdatingRef = useRef(false);
+
   const handlePreloaderComplete = useCallback(() => {
     setPreloaderDone(true);
   }, []);
 
-  // Unified scroll position tracking for all sections
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const heroExp = document.getElementById('hero-experience');
-      const pinSpacer = heroExp?.parentElement?.classList.contains('pin-spacer') ? heroExp.parentElement : heroExp;
+  // Cache layout measurements on mount & resize only to prevent layout trashing during scroll
+  const updateCachedOffsets = useCallback(() => {
+    const heroExp = document.getElementById('hero-experience');
+    const pinSpacer = heroExp?.parentElement?.classList.contains('pin-spacer') ? heroExp.parentElement : heroExp;
 
-      const otherSections = ['epilogue', 'smocha', 'matatu'];
-      for (const id of otherSections) {
-        const el = document.getElementById(id);
-        if (el && scrollY + window.innerHeight * 0.35 >= el.offsetTop) {
-          setActiveSection(id);
+    const vh = window.innerHeight;
+    const spacerTop = pinSpacer ? pinSpacer.offsetTop : 0;
+    const spacerHeight = pinSpacer ? pinSpacer.offsetHeight : 0;
+    const heroSpacerScroll = Math.max(0, spacerHeight - vh);
+
+    const matatuEl = document.getElementById('matatu');
+    const smochaEl = document.getElementById('smocha');
+    const epilogueEl = document.getElementById('epilogue');
+
+    cachedOffsetsRef.current = {
+      heroSpacerTop: spacerTop,
+      heroSpacerScroll,
+      matatuTop: matatuEl ? matatuEl.offsetTop : 0,
+      smochaTop: smochaEl ? smochaEl.offsetTop : 0,
+      epilogueTop: epilogueEl ? epilogueEl.offsetTop : 0,
+    };
+  }, []);
+
+  useEffect(() => {
+    updateCachedOffsets();
+    const handleResize = () => {
+      updateCachedOffsets();
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
+
+    const timer = setTimeout(updateCachedOffsets, 800);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      clearTimeout(timer);
+    };
+  }, [updateCachedOffsets, preloaderDone]);
+
+  // High-performance decoupled scroll tracking (zero layout thrashing in loop)
+  useEffect(() => {
+    const evaluateActiveSection = () => {
+      const scrollY = targetScrollYRef.current;
+      const vh = window.innerHeight;
+      const offsets = cachedOffsetsRef.current;
+
+      if (offsets.epilogueTop && scrollY + vh * 0.35 >= offsets.epilogueTop) {
+        setActiveSection('epilogue');
+        isUpdatingRef.current = false;
+        return;
+      }
+      if (offsets.smochaTop && scrollY + vh * 0.35 >= offsets.smochaTop) {
+        setActiveSection('smocha');
+        isUpdatingRef.current = false;
+        return;
+      }
+      if (offsets.matatuTop && scrollY + vh * 0.35 >= offsets.matatuTop) {
+        setActiveSection('matatu');
+        isUpdatingRef.current = false;
+        return;
+      }
+
+      if (offsets.heroSpacerScroll > 0) {
+        const progress = (scrollY - offsets.heroSpacerTop) / offsets.heroSpacerScroll;
+        if (progress >= 0.65) {
+          setActiveSection('bigfive');
+          isUpdatingRef.current = false;
+          return;
+        } else if (progress >= 0.18) {
+          setActiveSection('discovery');
+          isUpdatingRef.current = false;
+          return;
+        } else {
+          setActiveSection('hero');
+          isUpdatingRef.current = false;
           return;
         }
       }
 
-      if (pinSpacer) {
-        const spacerTop = pinSpacer.offsetTop;
-        const totalSpacerScroll = pinSpacer.offsetHeight - window.innerHeight;
-        if (totalSpacerScroll > 0) {
-          const progress = (scrollY - spacerTop) / totalSpacerScroll;
-          if (progress >= 0.65) {
-            setActiveSection('bigfive');
-            return;
-          } else if (progress >= 0.18) {
-            setActiveSection('discovery');
-            return;
-          } else {
-            setActiveSection('hero');
-            return;
-          }
-        }
-      }
-
       setActiveSection('hero');
+      isUpdatingRef.current = false;
+    };
+
+    const handleScroll = () => {
+      targetScrollYRef.current = window.scrollY;
+      if (!isUpdatingRef.current) {
+        isUpdatingRef.current = true;
+        animFrameIdRef.current = requestAnimationFrame(evaluateActiveSection);
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    };
   }, []);
 
   const handleExploreClick = () => {

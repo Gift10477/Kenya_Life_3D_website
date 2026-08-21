@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Center, ContactShadows, Environment, OrbitControls, PerspectiveCamera, useGLTF } from '@react-three/drei';
 import { Pause, Play, ZoomIn, ZoomOut, RotateCcw, Hand } from 'lucide-react';
 import * as THREE from 'three';
@@ -18,10 +18,11 @@ const MATATU_MODEL_URLS = [
   `${import.meta.env.BASE_URL}models/mood-transformed.glb`,
 ];
 
-function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = false }) {
+function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = false, visible = true }) {
   const pivotRef = useRef();
-  const { scene } = useGLTF(modelUrl, true);
-  const model = useMemo(() => scene?.clone(true), [scene]);
+  const { scene: rawScene } = useGLTF(modelUrl, true);
+  const { gl, scene: threeScene, camera } = useThree();
+  const model = useMemo(() => rawScene?.clone(true), [rawScene]);
 
   useEffect(() => {
     if (!model) return;
@@ -44,10 +45,25 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = fa
             if (texKey === 'map') {
               texture.colorSpace = THREE.SRGBColorSpace;
             }
+            // Pre-upload texture to GPU
+            if (gl.initTexture) {
+              try {
+                gl.initTexture(texture);
+              } catch (_) {}
+            }
           }
         });
       });
     });
+
+    // Pre-compile shader program
+    try {
+      if (gl.compileAsync) {
+        gl.compileAsync(threeScene, camera).catch(() => {});
+      } else {
+        gl.compile(threeScene, camera);
+      }
+    } catch (_) {}
 
     return () => {
       // Clean up cloned model resources to prevent memory leaks across vehicle switching
@@ -63,10 +79,10 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = fa
         });
       });
     };
-  }, [model, isMobile]);
+  }, [model, gl, threeScene, camera, isMobile]);
 
   useFrame((state, delta) => {
-    if (document.hidden) return;
+    if (document.hidden || !visible) return;
     const group = pivotRef.current;
     if (!group) return;
     if (autoRotate) group.rotation.y += delta * 0.2;
@@ -75,7 +91,7 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = fa
 
   if (!model) return null;
   return (
-    <group ref={pivotRef} scale={scale} dispose={null}>
+    <group ref={pivotRef} scale={scale} visible={visible} dispose={null}>
       <Center>
         <primitive object={model} dispose={null} />
       </Center>
@@ -83,9 +99,9 @@ function VehicleAsset({ modelUrl, autoRotate = true, scale = 1.95, isMobile = fa
   );
 }
 
-function SmoothCameraController({ targetDistance, controlsRef }) {
+function SmoothCameraController({ targetDistance, controlsRef, visible = true }) {
   useFrame((_, delta) => {
-    if (!controlsRef.current || document.hidden) return;
+    if (!controlsRef.current || document.hidden || !visible) return;
     const controls = controlsRef.current;
     const camera = controls.object;
     const target = controls.target;
@@ -110,17 +126,32 @@ function SmoothCameraController({ targetDistance, controlsRef }) {
 }
 
 export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, onNext, onSelect, fullBleed = false }) {
+  const containerRef = useRef(null);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isExploring, setIsExploring] = useState(false);
   const [targetDistance, setTargetDistance] = useState(DEFAULT_CAMERA_DISTANCE);
   const [touchOrbitEnabled, setTouchOrbitEnabled] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isInViewport, setIsInViewport] = useState(true);
   const controlsRef = useRef();
 
   const activeModel = models[currentIndex] || models[0];
 
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 1024);
+  }, []);
+
+  // IntersectionObserver for section culling
+  useEffect(() => {
+    if (!containerRef.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting);
+      },
+      { rootMargin: '100px 0px', threshold: 0.01 }
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -146,15 +177,36 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
     }
   };
 
-  const handleCreated = ({ gl }) => {
+  const handleCreated = async ({ gl, scene, camera }) => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.1;
     gl.shadowMap.enabled = !isTouchDevice;
+
+    // WebGL Context Lost & Restored prevention
+    const handleContextLost = (e) => {
+      e.preventDefault();
+      console.warn('MatatuViewer: WebGL Context Lost');
+    };
+    const handleContextRestored = () => {
+      console.info('MatatuViewer: WebGL Context Restored');
+    };
+
+    gl.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored, false);
+
+    try {
+      if (gl.compileAsync) {
+        await gl.compileAsync(scene, camera);
+      } else {
+        gl.compile(scene, camera);
+      }
+    } catch (_) {}
   };
 
   return (
     <div
+      ref={containerRef}
       className={`relative w-full overflow-hidden ${fullBleed
           ? 'h-full bg-transparent'
           : 'rounded-2xl bg-[#020406] border border-white/10'
@@ -172,6 +224,7 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
 
       {/* Canvas */}
       <Canvas
+        frameloop={isInViewport ? 'always' : 'demand'}
         dpr={[1, isTouchDevice ? 1.5 : 2.0]}
         gl={{
           antialias: true,
@@ -200,17 +253,20 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
             autoRotate={autoRotate && !isExploring}
             scale={1.95}
             isMobile={isTouchDevice}
+            visible={isInViewport}
           />
-          <ContactShadows
-            position={[0, -1.6, 0]}
-            opacity={0.5}
-            scale={8}
-            blur={2.4}
-            far={3}
-            resolution={isTouchDevice ? 256 : 512}
-            frames={1}
-            color="#020406"
-          />
+          {isInViewport && (
+            <ContactShadows
+              position={[0, -1.6, 0]}
+              opacity={0.5}
+              scale={8}
+              blur={2.4}
+              far={3}
+              resolution={isTouchDevice ? 256 : 512}
+              frames={1}
+              color="#020406"
+            />
+          )}
         </Suspense>
 
         <OrbitControls
@@ -227,7 +283,11 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
           onStart={() => { setIsExploring(true); setAutoRotate(false); }}
           onEnd={() => setIsExploring(false)}
         />
-        <SmoothCameraController targetDistance={targetDistance} controlsRef={controlsRef} />
+        <SmoothCameraController
+          targetDistance={targetDistance}
+          controlsRef={controlsRef}
+          visible={isInViewport}
+        />
       </Canvas>
 
       {/* Top model selector tabs */}
@@ -321,5 +381,5 @@ export default function MatatuViewer({ models = [], currentIndex = 0, onPrev, on
   );
 }
 
-// Preload all 3 Matatu GLBs at module level — fixes cold-start latency
+// Preload all 3 Matatu GLBs at module level
 MATATU_MODEL_URLS.forEach((url) => useGLTF.preload(url));

@@ -383,7 +383,12 @@ export default function HeroChapter({ onExploreClick, onSectionChange }) {
 
           {/* 3D WebGL Spatial Canvas (Synchronized rotation driven by scroll timeline) */}
           <div className="hero-3d-scene absolute inset-0 z-[2] pointer-events-auto">
-            <ParliamentScene active={activeSlide === 1} reducedMotion={reducedMotion} scrollRotationRef={modelRotationRef} />
+            <ParliamentScene
+              active={activeSlide === 1}
+              visible={activeSlide === 1}
+              reducedMotion={reducedMotion}
+              scrollRotationRef={modelRotationRef}
+            />
           </div>
 
           {/* Synchronized Foreground Wordmark Exchange: KENYA exits right -> KARIBU enters from left */}

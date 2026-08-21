@@ -95,11 +95,14 @@ export function useBigFiveCarousel() {
   const scrubTrackRef = useRef(null);
   const pendingTextEntranceRef = useRef(false);
 
-  // Preload all 5 animal images into memory
+  // Preload and pre-decode all 5 animal images into memory
   useEffect(() => {
     BIG_FIVE_DATA.forEach((animal) => {
       const img = new Image();
       img.src = animal.image;
+      if (img.decode) {
+        img.decode().catch(() => {});
+      }
     });
   }, []);
 

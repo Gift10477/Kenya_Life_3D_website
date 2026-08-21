@@ -80,11 +80,18 @@ export default function KaribuPreloader({ onComplete }) {
       .then(() => updateProgress('Pre-warming 3D Parliament...'))
       .catch(() => updateProgress());
 
-    // 2. Download Hero Images
+    // 2. Download and pre-decode Hero Images off-thread
     HERO_IMAGES.forEach((src) => {
       const img = new Image();
       img.src = src;
-      img.onload = () => updateProgress('Loading archive imagery...');
+      const onLoaded = () => {
+        if (img.decode) {
+          img.decode().then(() => updateProgress('Loading archive imagery...')).catch(() => updateProgress());
+        } else {
+          updateProgress('Loading archive imagery...');
+        }
+      };
+      img.onload = onLoaded;
       img.onerror = () => updateProgress();
     });
 

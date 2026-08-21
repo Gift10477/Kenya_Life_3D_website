@@ -382,6 +382,26 @@ export default function CulturalGrid() {
     });
     panelsRef.current = panels;
 
+    // WebGL Context Lost & Restored prevention
+    const handleContextLost = (e) => {
+      e.preventDefault();
+      console.warn('CulturalGrid: WebGL Context Lost');
+    };
+    const handleContextRestored = () => {
+      console.info('CulturalGrid: WebGL Context Restored');
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost, false);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
+
+    // Immediate shader pre-compilation
+    try {
+      if (renderer.compileAsync) {
+        renderer.compileAsync(scene, camera).catch(() => {});
+      } else {
+        renderer.compile(scene, camera);
+      }
+    } catch (_) {}
+
     let isVisible = true;
     const observer = new IntersectionObserver(
       (entries) => {

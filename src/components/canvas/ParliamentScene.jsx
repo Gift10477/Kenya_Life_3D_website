@@ -21,7 +21,7 @@ const PARTICLE_PALETTE = [COLOR_AMBER, COLOR_GOLD, COLOR_ORANGE, COLOR_CRIMSON];
  * GlowingSpatialParticles — High-efficiency 3D glowing particle field.
  * Zero CPU buffer allocations in the render loop.
  */
-function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
+function GlowingSpatialParticles({ active, reducedMotion, isMobile, visible = true }) {
   const pointsRef = useRef();
   const { mouse } = useThree();
 
@@ -81,7 +81,7 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
   }, [particleCount]);
 
   useFrame((state, delta) => {
-    if (!active || reducedMotion || !pointsRef.current || document.hidden) return;
+    if (!active || !visible || reducedMotion || !pointsRef.current || document.hidden) return;
     const time = state.clock.getElapsedTime();
 
     // Smooth GPU rotation & pointer sway without mutating CPU buffer arrays
@@ -92,7 +92,7 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
   });
 
   return (
-    <points ref={pointsRef}>
+    <points ref={pointsRef} visible={visible}>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
@@ -126,7 +126,7 @@ function GlowingSpatialParticles({ active, reducedMotion, isMobile }) {
  * On mobile portrait (aspect < 1.0 or width < 768px), widens camera FOV (65-70°)
  * and adjusts position so the Parliament model is fully framed without edge stretching or cropping.
  */
-function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMobile }) {
+function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMobile, visible = true }) {
   const { camera, size } = useThree();
 
   useEffect(() => {
@@ -134,15 +134,12 @@ function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMo
     const isPortrait = aspect < 1.0 || size.width < 768;
 
     if (isPortrait) {
-      // Mobile portrait: dynamically widen FOV to 65-70° and adjust position for complete framing
       camera.fov = Math.min(70, Math.max(65, 66 + (0.75 - aspect) * 8));
       camera.position.set(0, 0.35, 7.8);
     } else if (aspect < 1.2) {
-      // Tablets / square viewports
       camera.fov = 52;
       camera.position.set(0, 0.55, 8.4);
     } else {
-      // Desktop widescreen landscape
       camera.fov = 45;
       camera.position.set(0, 0.75, 8.8);
     }
@@ -151,7 +148,7 @@ function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMo
   }, [camera, size]);
 
   useFrame((state, delta) => {
-    if (!active || reducedMotion || document.hidden) return;
+    if (!active || !visible || reducedMotion || document.hidden) return;
 
     if (!isMobile) {
       const targetCamX = state.pointer.x * 0.35;
@@ -171,15 +168,15 @@ function ResponsiveCameraController({ active, reducedMotion, dragOffsetRef, isMo
   return null;
 }
 
-function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef, dragOffsetRef, isMobile }) {
+function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef, dragOffsetRef, isMobile, visible = true }) {
   const groupRef = useRef();
-  const { scene } = useGLTF(PARLIAMENT_MODEL_URL);
-  const { gl } = useThree();
+  const { scene: rawScene } = useGLTF(PARLIAMENT_MODEL_URL);
+  const { gl, scene: threeScene, camera } = useThree();
 
   const model = useMemo(() => {
-    if (!scene) return null;
-    return scene.clone(true);
-  }, [scene]);
+    if (!rawScene) return null;
+    return rawScene.clone(true);
+  }, [rawScene]);
 
   useEffect(() => {
     if (!model) return;
@@ -195,10 +192,8 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
       materials.forEach((mat) => {
         if (!mat) return;
 
-        // Render both sides to avoid missing polygons / dark see-through patches
         mat.side = THREE.DoubleSide;
 
-        // Clean natural architectural matte finish
         if ('metalness' in mat) {
           mat.metalness = Math.min(mat.metalness ?? 0, 0.08);
         }
@@ -209,7 +204,7 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
           mat.envMapIntensity = 0.25;
         }
 
-        // Texture filtering, anisotropy and color space
+        // Texture filtering, anisotropy and color space + immediate GPU pre-upload
         ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap'].forEach((texKey) => {
           const texture = mat[texKey];
           if (texture && texture.isTexture) {
@@ -221,12 +216,28 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
               texture.anisotropy = maxAnisotropy;
             }
             texture.needsUpdate = true;
+
+            // Direct GPU texture pre-upload: eliminates hitch on initial render
+            if (gl.initTexture) {
+              try {
+                gl.initTexture(texture);
+              } catch (_) {}
+            }
           }
         });
 
         mat.needsUpdate = true;
       });
     });
+
+    // Warm & pre-compile all shaders immediately
+    try {
+      if (gl.compileAsync) {
+        gl.compileAsync(threeScene, camera).catch(() => {});
+      } else {
+        gl.compile(threeScene, camera);
+      }
+    } catch (_) {}
 
     return () => {
       // Clean up resources on unmount
@@ -242,11 +253,11 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
         });
       });
     };
-  }, [model, gl, isMobile]);
+  }, [model, gl, threeScene, camera, isMobile]);
 
   useFrame((state) => {
     const group = groupRef.current;
-    if (!group || !active || document.hidden) return;
+    if (!group || !active || !visible || document.hidden) return;
     if (reducedMotion) {
       group.rotation.set(0, 0, 0);
       return;
@@ -267,7 +278,7 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
   if (!model) return null;
 
   return (
-    <group ref={groupRef} scale={scale} position={[0, 0, 0]} dispose={null}>
+    <group ref={groupRef} scale={scale} position={[0, 0, 0]} visible={visible} dispose={null}>
       <Center>
         <primitive object={model} dispose={null} />
       </Center>
@@ -275,13 +286,14 @@ function ParliamentMesh({ active, reducedMotion, scale = 20.0, scrollRotationRef
   );
 }
 
-export default function ParliamentScene({ active = true, reducedMotion = false, scrollRotationRef }) {
+export default function ParliamentScene({ active = true, visible = true, reducedMotion = false, scrollRotationRef }) {
   const containerRef = useRef(null);
   const dragOffsetRef = useRef({ offset: 0, velocity: 0 });
   const isDraggingRef = useRef(false);
   const lastPointerXRef = useRef(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isInViewport, setIsInViewport] = useState(true);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(isMobileViewport());
@@ -292,6 +304,21 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
       window.removeEventListener('resize', checkMobile);
       window.removeEventListener('orientationchange', checkMobile);
     };
+  }, []);
+
+  // Section culling with IntersectionObserver
+  useEffect(() => {
+    if (!containerRef.current || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting);
+      },
+      { rootMargin: '100px 0px', threshold: 0.01 }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const handlePointerDown = (e) => {
@@ -325,8 +352,9 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
   };
 
   const modelScale = isMobile ? 18.0 : 20.0;
+  const isSceneActive = active && visible && isInViewport;
 
-  const handleCreated = ({ gl }) => {
+  const handleCreated = async ({ gl, scene, camera }) => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.1;
@@ -334,6 +362,27 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
     if (gl.shadowMap.enabled) {
       gl.shadowMap.type = THREE.PCFSoftShadowMap;
     }
+
+    // WebGL Context Lost & Restored prevention listeners
+    const handleContextLost = (e) => {
+      e.preventDefault();
+      console.warn('ParliamentScene: WebGL Context Lost');
+    };
+    const handleContextRestored = () => {
+      console.info('ParliamentScene: WebGL Context Restored');
+    };
+
+    gl.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored, false);
+
+    // Initial pre-compile pass
+    try {
+      if (gl.compileAsync) {
+        await gl.compileAsync(scene, camera);
+      } else {
+        gl.compile(scene, camera);
+      }
+    } catch (_) {}
   };
 
   return (
@@ -349,6 +398,7 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
       onPointerEnter={() => setIsHovered(true)}
     >
       <Canvas
+        frameloop={isSceneActive ? 'always' : 'demand'}
         dpr={[1, isMobile ? 1.5 : 2.0]}
         gl={{
           antialias: true,
@@ -364,10 +414,11 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
         <PerspectiveCamera makeDefault position={[0, 0.6, 9.0]} fov={isMobile ? 66 : 45} />
 
         <ResponsiveCameraController
-          active={active}
+          active={isSceneActive}
           reducedMotion={reducedMotion}
           dragOffsetRef={dragOffsetRef}
           isMobile={isMobile}
+          visible={isSceneActive}
         />
 
         {/* Soft, balanced ambient base lighting for even architectural illumination */}
@@ -387,30 +438,41 @@ export default function ParliamentScene({ active = true, reducedMotion = false, 
 
         <Suspense fallback={null}>
           {/* Luminous Glowing 3D Particle Field */}
-          <GlowingSpatialParticles active={active} reducedMotion={reducedMotion} isMobile={isMobile} />
+          <GlowingSpatialParticles
+            active={isSceneActive}
+            reducedMotion={reducedMotion}
+            isMobile={isMobile}
+            visible={isSceneActive}
+          />
 
           <ParliamentMesh
-            active={active}
+            active={isSceneActive}
             reducedMotion={reducedMotion}
             scale={modelScale}
             scrollRotationRef={scrollRotationRef}
             dragOffsetRef={dragOffsetRef}
             isMobile={isMobile}
+            visible={isSceneActive}
           />
 
           {/* Static ground shadow catcher */}
-          <ContactShadows
-            position={[0, -2.1, 0]}
-            opacity={0.45}
-            scale={isMobile ? 9 : 12}
-            blur={2.2}
-            far={3.5}
-            resolution={isMobile ? 256 : 512}
-            frames={1}
-            color="#0f0905"
-          />
+          {isSceneActive && (
+            <ContactShadows
+              position={[0, -2.1, 0]}
+              opacity={0.45}
+              scale={isMobile ? 9 : 12}
+              blur={2.2}
+              far={3.5}
+              resolution={isMobile ? 256 : 512}
+              frames={1}
+              color="#0f0905"
+            />
+          )}
         </Suspense>
       </Canvas>
     </div>
   );
 }
+
+// Preload GLTF model at module level
+useGLTF.preload(PARLIAMENT_MODEL_URL);
