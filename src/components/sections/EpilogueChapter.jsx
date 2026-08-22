@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
+import HarambeeBrushReveal from '../ui/HarambeeBrushReveal';
 
 /**
  * EpilogueChapter — Cinematic close to the Karibu Kenya spatial archive.
@@ -177,23 +178,9 @@ export default function EpilogueChapter() {
             </span>
           </div>
 
-          {/* Giant Harambee wordmark */}
+          {/* Interactive Auto-Healing Brush Reveal Harambee Wordmark */}
           <div className="overflow-hidden">
-            <h2
-              className="font-heading font-black uppercase leading-none select-none"
-              style={{
-                fontSize: 'clamp(4rem, 14vw, 13rem)',
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(217,179,108,0.9) 45%, rgba(222,32,16,0.7) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                transform: quoteVisible ? 'translateY(0)' : 'translateY(60px)',
-                opacity: quoteVisible ? 1 : 0,
-                transition: 'transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.1s ease',
-              }}
-            >
-              HARAMBEE
-            </h2>
+            <HarambeeBrushReveal isVisible={quoteVisible} />
           </div>
 
           {/* Translation + context */}
