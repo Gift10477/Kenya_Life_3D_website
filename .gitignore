@@ -39,3 +39,10 @@ build/
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Judges & Hackathon Submission Dossiers
+JUDGES_AND_ORGANIZERS_ADDITIONAL_INFO.md
+JUDGES_AND_ORGANIZERS_ADDITIONAL_INFO.html
+*Judges_Dossier*.zip
+*judges*
+*Judges*
